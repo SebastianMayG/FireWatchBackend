@@ -25,35 +25,22 @@ class ActivityService:
     # ---------- consultas base ----------
     def _annual_uncached(self, bbox: BBox) -> dict[int, dict]:
         cur = self.db.cursor()
-        # activity = Σ peso (armonizada); modis_days / terra_days = celdas-día sin escalar,
-        # usadas como base común al comparar años estimados (ver compare()).
-        sums = {
-            y: (a, m, t) for y, a, m, t in cur.execute(
-                """SELECT year, SUM(peso),
-                          SUM(CASE WHEN has_modis THEN 1 ELSE 0 END),
-                          SUM(CASE WHEN (sensors & 1) > 0 THEN 1 ELSE 0 END)
-                   FROM cell_days
-                   WHERE lon_c BETWEEN ? AND ? AND lat_c BETWEEN ? AND ?
-                   GROUP BY year""",
-                [bbox.min_lon, bbox.max_lon, bbox.min_lat, bbox.max_lat],
-            ).fetchall()
-        }
+        act = dict(cur.execute(
+            """SELECT year, SUM(peso) FROM cell_days
+               WHERE lon_c BETWEEN ? AND ? AND lat_c BETWEEN ? AND ?
+               GROUP BY year""",
+            [bbox.min_lon, bbox.max_lon, bbox.min_lat, bbox.max_lat],
+        ).fetchall())
         det = dict(cur.execute(
             """SELECT year, COUNT(*) FROM hotspots
                WHERE longitude BETWEEN ? AND ? AND latitude BETWEEN ? AND ?
                GROUP BY year""",
             [bbox.min_lon, bbox.max_lon, bbox.min_lat, bbox.max_lat],
         ).fetchall())
-        out = {}
-        for y in self.years:
-            a, m, t = sums.get(y, (0.0, 0, 0))
-            out[y] = {
-                "activity": float(a or 0.0),
-                "modis_days": int(m or 0),
-                "terra_days": int(t or 0),
-                "detections": int(det.get(y, 0)),
-            }
-        return out
+        return {
+            y: {"activity": float(act.get(y, 0.0) or 0.0), "detections": int(det.get(y, 0))}
+            for y in self.years
+        }
 
     def _monthly_uncached(self, bbox: BBox) -> dict[int, list[float]]:
         rows = self.db.cursor().execute(
@@ -141,23 +128,16 @@ class ActivityService:
         }
 
     def comparison_basis(self, year_a: int, year_b: int, bbox: BBox) -> dict:
-        """Base común para comparar dos años sin que el factor de calibración decida el resultado.
+        """Comparación entre dos años con la actividad armonizada (decisión del equipo:
+        siempre armonizada, sin importar qué satélites había cada año).
 
-        - Ambos años medidos (>= 2012): actividad armonizada.
-        - Alguno solo-Terra (<= terra_only_until, sin Aqua): celdas-día detectadas por Terra.
-        - Alguno estimado (<= calibrated_until): celdas-día detectadas por MODIS (Terra + Aqua).
-        Los valores sin escalar solo sirven para comparar entre sí, no con la actividad armonizada.
+        Se marca low_data cuando alguno de los años tiene pocas detecciones: en áreas pequeñas
+        el factor de calibración de los años anteriores a 2012 puede pesar mucho en el resultado.
         """
         s = self.settings
         annual = self._annual(bbox)
-        oldest = min(year_a, year_b)
-        if oldest <= s.terra_only_until:
-            metric, key = "terra_cell_days", "terra_days"
-        elif oldest <= s.calibrated_until:
-            metric, key = "modis_cell_days", "modis_days"
-        else:
-            metric, key = "activity", "activity"
-        va, vb = annual[year_a][key], annual[year_b][key]
+        metric = "activity"
+        va, vb = annual[year_a]["activity"], annual[year_b]["activity"]
         if year_a == year_b or va == vb:
             peak = sorted({year_a, year_b}) if va > 0 else []
         else:

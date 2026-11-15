@@ -79,18 +79,18 @@ def test_compare_basis_uses_activity_when_both_measured(client):
     assert b["peak_years"] == [2025]
 
 
-def test_compare_basis_uses_modis_days_with_estimated_year(client):
-    # 2005 es estimado: se compara con celdas-día MODIS sin escalar (13 vs 50)
+def test_compare_basis_is_harmonized_even_with_estimated_years(client):
+    # Siempre actividad armonizada, aunque un año sea anterior a 2012
     b = client.get(f"/compare?year_a=2025&year_b=2005&bbox={BACKGROUND_BBOX}").json()["basis"]
-    assert b["metric"] == "modis_cell_days"
+    assert b["metric"] == "activity"
     assert (b["a"], b["b"]) == (13, 50)
     assert b["peak_years"] == [2005]
     assert b["pct_b_vs_a"] == pytest.approx(284.6)
 
 
-def test_compare_basis_uses_terra_days_before_aqua(client):
+def test_compare_basis_tie(client):
     b = client.get(f"/compare?year_a=2008&year_b=2002&bbox={BACKGROUND_BBOX}").json()["basis"]
-    assert b["metric"] == "terra_cell_days"
+    assert b["metric"] == "activity"
     assert b["peak_years"] == [2002, 2008]  # empate: 10 y 10
 
 

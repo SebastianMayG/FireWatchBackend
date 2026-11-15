@@ -110,20 +110,14 @@ Matriz años × meses para el heatmap. `values[i][j]` es la actividad del año `
 Indicadores de ambos años, en la misma área, y la comparación entre ellos. El calendario es el mismo para ambos lados (`/calendar`), solo cambia el año resaltado.
 ```json
 {"a": {"…indicadores 2008…": 0}, "b": {"…indicadores 2002…": 0},
- "basis": {"metric": "terra_cell_days", "a": 12, "b": 6, "pct_b_vs_a": -50.0, "pct_a_vs_b": 100.0,
+ "basis": {"metric": "activity", "a": 58.0, "b": 45.0, "pct_b_vs_a": -22.4, "pct_a_vs_b": 28.9,
            "peak_years": [2008], "low_data": true, "low_data_threshold": 30},
  "delta": {"activity_pct": 28.9, "detections_pct": -52.9, "activity_abs": 13.0, "detections_abs": -9}}
 ```
-**Para comparar los dos años, usar `basis`.** Elige una métrica que ambos años midieron igual, para que el factor de calibración no decida el resultado (en áreas pequeñas, un año anterior a 2012 se multiplica ×3.5, y uno de 2000-2002 hasta ×9):
-
-| Años comparados | `basis.metric` | Qué cuenta |
-|---|---|---|
-| ambos ≥ 2012 | `activity` | actividad armonizada |
-| alguno 2003–2011 | `modis_cell_days` | celdas-día con fuego detectadas por MODIS, sin escalar |
-| alguno 2000–2002 | `terra_cell_days` | celdas-día detectadas solo por Terra (único satélite presente en todos los años) |
+**Para comparar los dos años, usar `basis`.** Compara ambos años con la **actividad armonizada** (`metric: "activity"`), sin importar qué satélites había cada año.
 
 - `peak_years`: el año con más actividad de los dos (los dos si empatan).
-- `low_data: true` cuando alguno de los años tiene menos de `low_data_threshold` detecciones: mostrar un aviso de que la comparación es poco confiable.
+- `low_data: true` cuando alguno de los años tiene menos de `low_data_threshold` detecciones: en áreas pequeñas el factor de calibración de los años anteriores a 2012 puede pesar mucho, así que conviene mostrar un aviso.
 - `delta` se conserva por compatibilidad, pero usa la actividad escalada.
 
 ## `GET /report?year=&bbox=`

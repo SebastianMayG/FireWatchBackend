@@ -25,22 +25,35 @@ class ActivityService:
     # ---------- consultas base ----------
     def _annual_uncached(self, bbox: BBox) -> dict[int, dict]:
         cur = self.db.cursor()
-        act = dict(cur.execute(
-            """SELECT year, SUM(peso) FROM cell_days
-               WHERE lon_c BETWEEN ? AND ? AND lat_c BETWEEN ? AND ?
-               GROUP BY year""",
-            [bbox.min_lon, bbox.max_lon, bbox.min_lat, bbox.max_lat],
-        ).fetchall())
+        # activity = Σ peso (armonizada); modis_days / terra_days = celdas-día sin escalar,
+        # usadas como base común al comparar años estimados (ver compare()).
+        sums = {
+            y: (a, m, t) for y, a, m, t in cur.execute(
+                """SELECT year, SUM(peso),
+                          SUM(CASE WHEN has_modis THEN 1 ELSE 0 END),
+                          SUM(CASE WHEN (sensors & 1) > 0 THEN 1 ELSE 0 END)
+                   FROM cell_days
+                   WHERE lon_c BETWEEN ? AND ? AND lat_c BETWEEN ? AND ?
+                   GROUP BY year""",
+                [bbox.min_lon, bbox.max_lon, bbox.min_lat, bbox.max_lat],
+            ).fetchall()
+        }
         det = dict(cur.execute(
             """SELECT year, COUNT(*) FROM hotspots
                WHERE longitude BETWEEN ? AND ? AND latitude BETWEEN ? AND ?
                GROUP BY year""",
             [bbox.min_lon, bbox.max_lon, bbox.min_lat, bbox.max_lat],
         ).fetchall())
-        return {
-            y: {"activity": float(act.get(y, 0.0) or 0.0), "detections": int(det.get(y, 0))}
-            for y in self.years
-        }
+        out = {}
+        for y in self.years:
+            a, m, t = sums.get(y, (0.0, 0, 0))
+            out[y] = {
+                "activity": float(a or 0.0),
+                "modis_days": int(m or 0),
+                "terra_days": int(t or 0),
+                "detections": int(det.get(y, 0)),
+            }
+        return out
 
     def _monthly_uncached(self, bbox: BBox) -> dict[int, list[float]]:
         rows = self.db.cursor().execute(
@@ -127,12 +140,47 @@ class ActivityService:
             "peak_year": self.peak_year(bbox),
         }
 
+    def comparison_basis(self, year_a: int, year_b: int, bbox: BBox) -> dict:
+        """Base común para comparar dos años sin que el factor de calibración decida el resultado.
+
+        - Ambos años medidos (>= 2012): actividad armonizada.
+        - Alguno solo-Terra (<= terra_only_until, sin Aqua): celdas-día detectadas por Terra.
+        - Alguno estimado (<= calibrated_until): celdas-día detectadas por MODIS (Terra + Aqua).
+        Los valores sin escalar solo sirven para comparar entre sí, no con la actividad armonizada.
+        """
+        s = self.settings
+        annual = self._annual(bbox)
+        oldest = min(year_a, year_b)
+        if oldest <= s.terra_only_until:
+            metric, key = "terra_cell_days", "terra_days"
+        elif oldest <= s.calibrated_until:
+            metric, key = "modis_cell_days", "modis_days"
+        else:
+            metric, key = "activity", "activity"
+        va, vb = annual[year_a][key], annual[year_b][key]
+        if year_a == year_b or va == vb:
+            peak = sorted({year_a, year_b}) if va > 0 else []
+        else:
+            peak = [year_a if va > vb else year_b]
+        min_det = min(annual[year_a]["detections"], annual[year_b]["detections"])
+        return {
+            "metric": metric,
+            "a": round(float(va), 1),
+            "b": round(float(vb), 1),
+            "pct_b_vs_a": self.pct_change(vb, va),
+            "pct_a_vs_b": self.pct_change(va, vb),
+            "peak_years": peak,
+            "low_data": min_det < s.low_data_detections,
+            "low_data_threshold": s.low_data_detections,
+        }
+
     def compare(self, year_a: int, year_b: int, bbox: BBox) -> dict:
         a = self.indicators(year_a, bbox)
         b = self.indicators(year_b, bbox)
         return {
             "a": a,
             "b": b,
+            "basis": self.comparison_basis(year_a, year_b, bbox),
             "delta": {
                 "activity_pct": self.pct_change(b["activity"], a["activity"]),
                 "detections_pct": self.pct_change(b["detections"], a["detections"]),

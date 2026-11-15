@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     # Años
     partial_years: tuple[int, ...] = (2000,)
     calibrated_until: int = 2011  # años <= a este dependen del factor de calibración
+    terra_only_until: int = 2002  # años <= a este tuvieron meses solo con Terra (Aqua desde 2002-07-04)
+    low_data_detections: int = 30  # menos detecciones en alguno de los años -> comparación poco confiable
 
     # Azure (opcional, solo para scripts/sync_from_azure.py)
     azure_storage_connection_string: str | None = None

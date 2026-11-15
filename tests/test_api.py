@@ -69,6 +69,36 @@ def test_compare(client):
     assert c["delta"]["activity_pct"] == pytest.approx(284.6)
 
 
+BACKGROUND_BBOX = "-105.2,24.9,-104.9,25.2"  # solo la zona de fondo del conftest
+
+
+def test_compare_basis_uses_activity_when_both_measured(client):
+    b = client.get(f"/compare?year_a=2025&year_b=2020&bbox={BACKGROUND_BBOX}").json()["basis"]
+    assert b["metric"] == "activity"
+    assert (b["a"], b["b"]) == (13, 10)
+    assert b["peak_years"] == [2025]
+
+
+def test_compare_basis_uses_modis_days_with_estimated_year(client):
+    # 2005 es estimado: se compara con celdas-día MODIS sin escalar (13 vs 50)
+    b = client.get(f"/compare?year_a=2025&year_b=2005&bbox={BACKGROUND_BBOX}").json()["basis"]
+    assert b["metric"] == "modis_cell_days"
+    assert (b["a"], b["b"]) == (13, 50)
+    assert b["peak_years"] == [2005]
+    assert b["pct_b_vs_a"] == pytest.approx(284.6)
+
+
+def test_compare_basis_uses_terra_days_before_aqua(client):
+    b = client.get(f"/compare?year_a=2008&year_b=2002&bbox={BACKGROUND_BBOX}").json()["basis"]
+    assert b["metric"] == "terra_cell_days"
+    assert b["peak_years"] == [2002, 2008]  # empate: 10 y 10
+
+
+def test_compare_low_data_flag(client):
+    # el conftest solo tiene detecciones crudas en 2020 -> pocos datos
+    assert client.get("/compare?year_a=2025&year_b=2020").json()["basis"]["low_data"] is True
+
+
 def test_calendar_shape(client):
     cal = client.get("/calendar").json()
     assert len(cal["values"]) == len(cal["years"]) == 26

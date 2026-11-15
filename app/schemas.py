@@ -29,9 +29,24 @@ class CompareDelta(BaseModel):
     detections_abs: int
 
 
+class CompareBasis(BaseModel):
+    """Comparación justa entre los dos años: usa una métrica que ambos midieron igual."""
+
+    metric: str = Field(description="`activity` (ambos >= 2012), `modis_cell_days` (alguno 2003-2011) "
+                                    "o `terra_cell_days` (alguno 2000-2002, sin Aqua)")
+    a: float = Field(description="Valor de year_a en esa métrica")
+    b: float = Field(description="Valor de year_b en esa métrica")
+    pct_b_vs_a: float | None
+    pct_a_vs_b: float | None
+    peak_years: list[int] = Field(description="Año con más actividad de los dos (ambos si empatan)")
+    low_data: bool = Field(description="True si alguno de los años tiene pocas detecciones: comparación poco confiable")
+    low_data_threshold: int
+
+
 class Compare(BaseModel):
     a: Indicators
     b: Indicators
+    basis: CompareBasis
     delta: CompareDelta
 
 

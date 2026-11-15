@@ -107,12 +107,24 @@ Matriz años × meses para el heatmap. `values[i][j]` es la actividad del año `
 ```
 
 ## `GET /compare?year_a=&year_b=&bbox=`
-Indicadores de ambos años, en la misma área, y la diferencia de `b` respecto de `a`. El calendario es el mismo para ambos lados (`/calendar`), solo cambia el año resaltado.
+Indicadores de ambos años, en la misma área, y la comparación entre ellos. El calendario es el mismo para ambos lados (`/calendar`), solo cambia el año resaltado.
 ```json
-{"a": {"…indicadores 2011…": 0}, "b": {"…indicadores 2025…": 0},
- "delta": {"activity_pct": -51.1, "detections_pct": 381.3, "activity_abs": -173502.7, "detections_abs": 399117}}
+{"a": {"…indicadores 2008…": 0}, "b": {"…indicadores 2002…": 0},
+ "basis": {"metric": "terra_cell_days", "a": 12, "b": 6, "pct_b_vs_a": -50.0, "pct_a_vs_b": 100.0,
+           "peak_years": [2008], "low_data": true, "low_data_threshold": 30},
+ "delta": {"activity_pct": 28.9, "detections_pct": -52.9, "activity_abs": 13.0, "detections_abs": -9}}
 ```
-Para comparar periodos, usar **`activity_pct`**. `detections_pct` sale distorsionado cuando uno de los años es anterior a 2012.
+**Para comparar los dos años, usar `basis`.** Elige una métrica que ambos años midieron igual, para que el factor de calibración no decida el resultado (en áreas pequeñas, un año anterior a 2012 se multiplica ×3.5, y uno de 2000-2002 hasta ×9):
+
+| Años comparados | `basis.metric` | Qué cuenta |
+|---|---|---|
+| ambos ≥ 2012 | `activity` | actividad armonizada |
+| alguno 2003–2011 | `modis_cell_days` | celdas-día con fuego detectadas por MODIS, sin escalar |
+| alguno 2000–2002 | `terra_cell_days` | celdas-día detectadas solo por Terra (único satélite presente en todos los años) |
+
+- `peak_years`: el año con más actividad de los dos (los dos si empatan).
+- `low_data: true` cuando alguno de los años tiene menos de `low_data_threshold` detecciones: mostrar un aviso de que la comparación es poco confiable.
+- `delta` se conserva por compatibilidad, pero usa la actividad escalada.
 
 ## `GET /report?year=&bbox=`
 Todo lo necesario para el PDF en una sola llamada: `indicators`, `trend`, `calendar`, `methodology` (texto breve), `attribution` y `bbox`. Si la vista ya tiene esos datos cargados, no hace falta llamarlo.

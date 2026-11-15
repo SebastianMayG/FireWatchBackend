@@ -1,0 +1,11 @@
+.git
+.venv
+data_NASA_2026
+datos_mexico
+notebooks
+tests
+docs
+**/__pycache__
+.pytest_cache
+.ipynb_checkpoints
+.env

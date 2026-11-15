@@ -3,12 +3,12 @@ Descarga los zips anuales de FIRMS (todos los paises), extrae solo el CSV de
 Mexico de cada uno, borra el zip y deja un CSV unido por serie.
 
 Uso:
-    python descargar_firms_mexico.py
+    python descarga.py
 
 Resultado:
-    datos_mexico/modis_mexico_2000_2025.csv
-    datos_mexico/viirs-snpp_mexico_2012_2025.csv
-    datos_mexico/viirs-noaa20_mexico_2018_2025.csv
+    data_NASA_2026/modis_mexico_2000_2025.csv
+    data_NASA_2026/viirs-snpp_mexico_2012_2025.csv
+    data_NASA_2026/viirs-noaa20_mexico_2018_2025.csv
 
 IMPORTANTE: solo la URL de viirs-snpp esta confirmada. Las de MODIS y NOAA-20
 siguen el mismo patron pero hay que verificarlas: en la pagina /country/ haz
@@ -34,7 +34,7 @@ PLANTILLAS = {
 }
 
 PAIS = "mexico"          # se busca en el nombre de cada archivo dentro del zip
-SALIDA = Path("datos_mexico")
+SALIDA = Path(__file__).resolve().parent / "data_NASA_2026"  # la carpeta que lee el notebook
 TMP = SALIDA / "_tmp"
 
 

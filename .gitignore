@@ -1,3 +1,8 @@
 CLAUDE.md
 data_NASA_2026
 descarga.py
+.venv/
+data_NASA_2026/
+data_processed/
+.ipynb_checkpoints/
+.env

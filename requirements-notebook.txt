@@ -1,0 +1,5 @@
+# Dependencias extra para el notebook de limpieza y armonización
+-r requirements.txt
+matplotlib
+jupyter
+ipykernel

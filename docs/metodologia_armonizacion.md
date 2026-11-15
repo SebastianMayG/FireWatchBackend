@@ -144,7 +144,33 @@ Cada celda-día lleva un `peso` que resume la armonización:
 
 ---
 
-## 6. Productos generados (`data_processed/`)
+## 6. Zonas de incendios recurrentes
+
+Se calculan en la API al arrancar ([`app/services/recurrent.py`](../app/services/recurrent.py)) a partir de `cell_days.parquet`.
+
+- **Zona:** cuadro de 0.05° (~5.6 km), formado por 5 × 5 celdas de 1 km.
+- **Año activo:** la zona tuvo **≥ 5 celdas-día** con fuego detectado por MODIS en ese año.
+- **Zona recurrente:** tiene **≥ 15 años activos** de los 25 años completos (2001–2025).
+- Las zonas recurrentes vecinas se unen en polígonos.
+
+**Por qué solo MODIS:** es el único sensor disponible los 25 años. Si se usara VIIRS, una zona tendría más probabilidad de parecer recurrente después de 2012 solo por la mayor sensibilidad del sensor.
+
+**Por qué exigir 5 celdas-día por año:** con el criterio inicial (≥ 10 años con al menos 1 detección), el 28% de México (~545 mil km²) resultaba "recurrente", con dos manchas de ~200 mil km² cada una. Eso no distingue focos crónicos de zonas donde simplemente hay algún fuego casi cada año. Se compararon varios umbrales:
+
+| Criterio | Zonas | Superficie aprox. | Polígono más grande |
+|---|---|---|---|
+| ≥ 1 celda-día en ≥ 10 años | 18,179 | 545 mil km² | 6,973 zonas |
+| ≥ 3 celdas-día en ≥ 15 años | 3,559 | 107 mil km² | 543 zonas |
+| ≥ 2 celdas-día en ≥ 20 años | 2,755 | 83 mil km² | 403 zonas |
+| **≥ 5 celdas-día en ≥ 15 años (elegido)** | **1,112** | **33 mil km² (1.7% de México)** | **145 zonas** |
+
+**Resultado:** 369 polígonos. Los umbrales se pueden ajustar con las variables `RECURRENT_MIN_YEARS` y `RECURRENT_MIN_CELL_DAYS`.
+
+**Limitación:** 9 de las 171 celdas eliminadas por el filtro de persistencia (§4.3) quedan dentro de alguna zona recurrente. Esas celdas ya no aportan datos; la zona existe por los incendios de las celdas vecinas.
+
+---
+
+## 7. Productos generados (`data_processed/`)
 
 | Archivo | Contenido | Uso en la API |
 |---|---|---|
@@ -157,7 +183,7 @@ Cada celda-día lleva un `peso` que resume la armonización:
 
 ---
 
-## 7. Limitaciones
+## 8. Limitaciones
 
 1. **2000 es parcial** (solo noviembre–diciembre). Se excluye de la mediana histórica y del "año con mayor actividad".
 2. **2000–2011 dependen de un factor de calibración.** R se asume constante en el tiempo. Su variación observada (±5–15%) es una medida de la incertidumbre de esos años. En 2000–2002 el multiplicador combinado R × A es de ~7–9, así que la incertidumbre es mayor.

@@ -6,3 +6,5 @@ data_NASA_2026/
 data_processed/
 .ipynb_checkpoints/
 .env
+__pycache__/
+.pytest_cache/
